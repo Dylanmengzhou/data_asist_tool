@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AGI Eval 数据标注助手（All in One）
 // @namespace    http://tampermonkey.net/
-// @version      1.0.1
+// @version      1.0.2
 // @description  整合：批量勾选、快捷键操作、URL链接化、元素监控
 // @match        https://agi-eval.cn/*
 // @run-at       document-idle
@@ -610,7 +610,11 @@
     help.innerHTML = `
       <span class="help-hide">×</span>
       <div class="help-title">⌨️ ${config.name || "快捷键"}</div>
-      <div><span class="help-key">Alt+1~5</span>快捷选择</div>
+      <div><span class="help-key">Alt+1</span>批量反选</div>
+      <div><span class="help-key">Alt+1</span>批量标注</div>
+      <div><span class="help-key">Alt+1</span>批量删除</div>
+      <div><span class="help-key">Alt+1</span>批量识别</div>
+      <div><span class="help-key">Alt+1</span>批量分组</div>
       <div style="margin-top:5px;color:#999;font-size:10px;">Alt+H 显示/隐藏</div>
     `;
     document.body.appendChild(help);
