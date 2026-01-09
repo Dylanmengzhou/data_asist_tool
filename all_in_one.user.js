@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AGI Eval 数据标注助手（All in One）
 // @namespace    http://tampermonkey.net/
-// @version      1.0.2
+// @version      1.0.3
 // @description  整合：批量勾选、快捷键操作、URL链接化、元素监控
 // @match        https://agi-eval.cn/*
 // @run-at       document-idle
