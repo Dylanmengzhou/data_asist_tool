@@ -611,10 +611,10 @@
       <span class="help-hide">×</span>
       <div class="help-title">⌨️ ${config.name || "快捷键"}</div>
       <div><span class="help-key">Alt+1</span>批量反选</div>
-      <div><span class="help-key">Alt+1</span>批量标注</div>
-      <div><span class="help-key">Alt+1</span>批量删除</div>
-      <div><span class="help-key">Alt+1</span>批量识别</div>
-      <div><span class="help-key">Alt+1</span>批量分组</div>
+      <div><span class="help-key">Alt+2</span>批量标注</div>
+      <div><span class="help-key">Alt+3</span>批量删除</div>
+      <div><span class="help-key">Alt+4</span>批量识别</div>
+      <div><span class="help-key">Alt+5</span>批量分组</div>
       <div style="margin-top:5px;color:#999;font-size:10px;">Alt+H 显示/隐藏</div>
     `;
     document.body.appendChild(help);
