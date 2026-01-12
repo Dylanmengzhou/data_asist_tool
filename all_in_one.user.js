@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AGI Eval 数据标注助手（All in One）
 // @namespace    http://tampermonkey.net/
-// @version      1.0.3
+// @version      1.0.4
 // @description  整合：批量勾选、快捷键操作、URL链接化、元素监控
 // @match        https://agi-eval.cn/*
 // @run-at       document-idle
@@ -14,6 +14,63 @@
 
 (function () {
   "use strict";
+
+  // ============== 默认配置（根据页面类型） ==============
+  const DEFAULT_CONFIGS = {
+    annotation: {
+      name: "annotation 默认配置",
+      enableCheckbox: true,
+      checkboxBaseXpath:
+        '//*[@id="root"]/div/div/main/div/div/div[2]/div/div/div/form/div/div[3]/div/div/div/div[3]/div[3]/div/div/div/div/div/table/tbody/tr',
+      enableHotkey: true,
+      dropdownTriggerXpath:
+        '//*[@id="root"]/div/div/main/div/div/div[2]/div/div/div/form/div/div[3]/div/div/div/div[3]/div[1]/div/button[2]',
+      dropdownSelector: ".ant-dropdown-menu-item",
+      enableUrlLinkify: true,
+      urlXpath:
+        '//*[@id="root"]/div/div/main/div/div/div[2]/div/div/div/form/div/div[3]/div/div/div/div[3]/div[2]/div/div[2]/div/div/div',
+      enableMonitor: true,
+      monitorXpath:
+        '//*[@id="root"]/div/div/main/div/div/div[2]/div/div/div/div[1]/div/div[2]/div/div/div[2]/div/div[3]/div/div/div',
+      monitorClickXpath:
+        '//*[@id="root"]/div/div/main/div/div/div[2]/div/div/div/div[1]/div/div/div/span',
+    },
+    check: {
+      name: "check 默认配置",
+      enableCheckbox: true,
+      checkboxBaseXpath:
+        '//*[@id="root"]/div/div/div/main/div[2]/div[1]/div/div[1]/form/div/div[3]/div/div/div/div[3]/div[3]/div/div/div/div/div/table/tbody/tr',
+      enableHotkey: true,
+      dropdownTriggerXpath:
+        '//*[@id="root"]/div/div/main/div/div/div[2]/div/div/div/form/div/div[3]/div/div/div/div[3]/div[1]/div/button[2]',
+      dropdownSelector: ".ant-dropdown-menu-item",
+      enableUrlLinkify: true,
+      urlXpath:
+        '//*[@id="root"]/div/div/div/main/div[2]/div[1]/div/div[1]/form/div/div[3]/div/div/div/div[3]/div[2]/div/div[2]/div/div/div',
+      enableMonitor: true,
+      monitorXpath:
+        '//*[@id="root"]/div/div/div/main/div[2]/div[1]/div/div[2]/div/div[2]/div/div/div[2]/div/div[3]/div/div/div',
+      monitorClickXpath:
+        '//*[@id="root"]/div/div/div/main/div[2]/div[1]/div/div[2]/div/div[1]/div/span',
+    },
+  };
+
+  // 获取页面类型（annotation 或 check）
+  function getPageType() {
+    const url = window.location.href;
+    if (url.includes("/annotation/")) return "annotation";
+    if (url.includes("/check/")) return "check";
+    return null;
+  }
+
+  // 获取当前页面类型的默认配置
+  function getDefaultConfig() {
+    const pageType = getPageType();
+    if (pageType && DEFAULT_CONFIGS[pageType]) {
+      return { ...DEFAULT_CONFIGS[pageType] };
+    }
+    return null;
+  }
 
   // ============== 全局配置管理 ==============
   function getTaskId() {
@@ -139,6 +196,26 @@
     #agi-config-modal .btn-draft { background: #1890ff; color: white; }
     #agi-config-modal .btn-cancel { background: #999; color: white; }
     #agi-config-modal .btn-delete { background: #f44336; color: white; }
+    #agi-config-modal .btn-default { background: #ff9800; color: white; }
+
+    /* 页面类型标签 */
+    #agi-config-modal .page-type-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-left: 10px;
+    }
+    #agi-config-modal .page-type-tag.annotation {
+      background: #e6f7ff;
+      color: #1890ff;
+      border: 1px solid #91d5ff;
+    }
+    #agi-config-modal .page-type-tag.check {
+      background: #fff7e6;
+      color: #fa8c16;
+      border: 1px solid #ffd591;
+    }
 
     /* 配置按钮 */
     #agi-config-btn {
@@ -435,36 +512,53 @@
   // ============== 配置弹窗 ==============
   function showConfigModal(taskId, existingConfig = null) {
     const isNew = !existingConfig;
-    const config = existingConfig || {
-      name: "",
-      // 勾选框配置
-      enableCheckbox: true,
-      checkboxBaseXpath: "",
-      // 快捷键配置
-      enableHotkey: true,
-      dropdownTriggerXpath: "",
-      dropdownSelector: ".ant-dropdown-menu-item",
-      // URL链接化配置
-      enableUrlLinkify: true,
-      urlXpath: "",
-      // 元素监控配置
-      enableMonitor: false,
-      monitorXpath: "",
-      monitorClickXpath: "",
-    };
+    const pageType = getPageType();
+    const defaultConfig = getDefaultConfig();
+
+    // 如果是新配置且有默认配置，使用默认配置
+    const config = existingConfig ||
+      defaultConfig || {
+        name: "",
+        enableCheckbox: true,
+        checkboxBaseXpath: "",
+        enableHotkey: true,
+        dropdownTriggerXpath: "",
+        dropdownSelector: ".ant-dropdown-menu-item",
+        enableUrlLinkify: true,
+        urlXpath: "",
+        enableMonitor: false,
+        monitorXpath: "",
+        monitorClickXpath: "",
+      };
 
     const modal = document.createElement("div");
     modal.id = "agi-config-modal";
+
+    // 页面类型标签
+    const pageTypeTag = pageType
+      ? `<span class="page-type-tag ${pageType}">${pageType}</span>`
+      : "";
+
     modal.innerHTML = `
       <div class="modal-content">
-        <h2>⚙️ ${isNew ? "配置新项目" : "编辑项目配置"}</h2>
+        <h2>⚙️ ${isNew ? "配置新项目" : "编辑项目配置"}${pageTypeTag}</h2>
         <p style="color:#666;margin-bottom:15px;">TaskId: <strong>${taskId}</strong></p>
-        
+
         <label>项目名称</label>
         <input type="text" id="cfg-name" value="${
           config.name || ""
         }" placeholder="便于识别的名称">
-        
+
+        ${
+          pageType && defaultConfig
+            ? `
+        <button class="btn-default" id="btn-use-default" style="margin-bottom:15px;width:auto;flex:none;padding:8px 15px;">
+          🔄 使用 ${pageType} 默认配置
+        </button>
+        `
+            : ""
+        }
+
         <!-- 勾选框功能 -->
         <div class="section">
           <div class="section-header">
@@ -542,6 +636,48 @@
     `;
 
     document.body.appendChild(modal);
+
+    // 填充表单的函数
+    function fillFormWithConfig(cfg) {
+      document.getElementById("cfg-name").value = cfg.name || "";
+      document.getElementById("cfg-enableCheckbox").checked =
+        cfg.enableCheckbox;
+      document.getElementById("cfg-checkboxXpath").value =
+        cfg.checkboxBaseXpath || "";
+      document.getElementById("cfg-enableHotkey").checked = cfg.enableHotkey;
+      document.getElementById("cfg-dropdownTrigger").value =
+        cfg.dropdownTriggerXpath || "";
+      document.getElementById("cfg-dropdownSelector").value =
+        cfg.dropdownSelector || ".ant-dropdown-menu-item";
+      document.getElementById("cfg-enableUrl").checked = cfg.enableUrlLinkify;
+      document.getElementById("cfg-urlXpath").value = cfg.urlXpath || "";
+      document.getElementById("cfg-enableMonitor").checked = cfg.enableMonitor;
+      document.getElementById("cfg-monitorXpath").value =
+        cfg.monitorXpath || "";
+      document.getElementById("cfg-monitorClick").value =
+        cfg.monitorClickXpath || "";
+    }
+
+    // 使用默认配置按钮
+    const defaultBtn = modal.querySelector("#btn-use-default");
+    if (defaultBtn && defaultConfig) {
+      defaultBtn.addEventListener("click", () => {
+        const currentName = document.getElementById("cfg-name").value;
+        fillFormWithConfig(defaultConfig);
+        // 保留用户已填写的名称
+        if (currentName) {
+          document.getElementById("cfg-name").value = currentName;
+        }
+        showToast(`📋 已填充 ${pageType} 默认配置`);
+      });
+    }
+
+    // 如果是新配置且自动填充了默认配置，显示提示
+    if (isNew && defaultConfig) {
+      setTimeout(() => {
+        showToast(`📋 已自动填充 ${pageType} 默认配置`, 2000);
+      }, 300);
+    }
 
     // 获取当前表单配置
     function getCurrentFormConfig() {
