@@ -254,6 +254,11 @@
     }
     #agi-checkbox-container .btn-confirm { background: #4CAF50; }
     #agi-checkbox-container .btn-cancel { background: #f44336; }
+    #agi-checkbox-container .btn-clear { background: #999; }
+
+    #agi-checkbox-container .btn-jump-confirm { background: #4CAF50; }
+    #agi-checkbox-container .btn-jump-cancel { background: #f44336; }
+    #agi-checkbox-container .btn-jump-clear { background: #999; }
 
     /* 元素监控容器 */
     #agi-monitor-container {
@@ -541,11 +546,21 @@
     container.id = "agi-checkbox-container";
     container.innerHTML = `
       <div class="drag-header">☰ 拖拽移动</div>
+      <div style="font-size:11px;color:#666;margin-bottom:5px;">连续选择</div>
       <input type="number" id="agi-start" placeholder="起始行">
       <input type="number" id="agi-end" placeholder="结束行">
       <div class="btn-row">
         <button class="btn-confirm">勾选</button>
         <button class="btn-cancel">取消</button>
+        <button class="btn-clear">清空</button>
+      </div>
+      <div style="border-top:1px dashed #ddd;margin:10px 0;"></div>
+      <div style="font-size:11px;color:#666;margin-bottom:5px;">跳选（如: 2,6,7）</div>
+      <input type="text" id="agi-jump" placeholder="输入行号，逗号分隔">
+      <div class="btn-row">
+        <button class="btn-jump-confirm">勾选</button>
+        <button class="btn-jump-cancel">取消</button>
+        <button class="btn-jump-clear">清空</button>
       </div>
     `;
     document.body.appendChild(container);
@@ -553,6 +568,7 @@
 
     const baseXpath = config.checkboxBaseXpath;
 
+    // 连续选择 - 勾选
     container.querySelector(".btn-confirm").addEventListener("click", () => {
       const start = parseInt(document.getElementById("agi-start").value) || 0;
       const end = parseInt(document.getElementById("agi-end").value) || 0;
@@ -563,6 +579,7 @@
       operateCheckboxes(baseXpath, start, end, true);
     });
 
+    // 连续选择 - 取消
     container.querySelector(".btn-cancel").addEventListener("click", () => {
       const start = parseInt(document.getElementById("agi-start").value) || 0;
       const end = parseInt(document.getElementById("agi-end").value) || 0;
@@ -572,6 +589,89 @@
       }
       operateCheckboxes(baseXpath, start, end, false);
     });
+
+    // 连续选择 - 清空
+    container.querySelector(".btn-clear").addEventListener("click", () => {
+      document.getElementById("agi-start").value = "";
+      document.getElementById("agi-end").value = "";
+    });
+
+    // 跳选 - 勾选
+    container
+      .querySelector(".btn-jump-confirm")
+      .addEventListener("click", () => {
+        const input = document.getElementById("agi-jump").value;
+        const rows = parseJumpInput(input);
+        if (rows.length === 0) {
+          alert("请输入有效的行号，用逗号分隔");
+          return;
+        }
+        operateCheckboxesByRows(baseXpath, rows, true);
+      });
+
+    // 跳选 - 取消
+    container
+      .querySelector(".btn-jump-cancel")
+      .addEventListener("click", () => {
+        const input = document.getElementById("agi-jump").value;
+        const rows = parseJumpInput(input);
+        if (rows.length === 0) {
+          alert("请输入有效的行号，用逗号分隔");
+          return;
+        }
+        operateCheckboxesByRows(baseXpath, rows, false);
+      });
+
+    // 跳选 - 清空
+    container.querySelector(".btn-jump-clear").addEventListener("click", () => {
+      document.getElementById("agi-jump").value = "";
+    });
+  }
+
+  // 解析跳选输入（支持中英文逗号混合）
+  function parseJumpInput(input) {
+    // 把中文逗号替换成英文逗号，然后分割
+    const normalized = input.replace(/，/g, ",");
+    const parts = normalized.split(",");
+    const rows = [];
+    const seen = new Set();
+
+    for (const part of parts) {
+      const num = parseInt(part.trim(), 10);
+      // 去重但保持输入顺序
+      if (!isNaN(num) && num > 0 && !seen.has(num)) {
+        rows.push(num);
+        seen.add(num);
+      }
+    }
+
+    return rows;
+  }
+
+  // 按指定行号操作勾选框（异步，带延迟）
+  async function operateCheckboxesByRows(baseXpath, rows, check) {
+    let count = 0;
+
+    for (const row of rows) {
+      const checkboxXpath = `${baseXpath}[${row}]/td[1]/label/span/input`;
+      const checkbox = getElementByXPath(checkboxXpath);
+      if (checkbox) {
+        if (check && !checkbox.checked) {
+          checkbox.click();
+          count++;
+          // 每次点击后等待一小段时间，确保DOM更新
+          await new Promise((r) => setTimeout(r, 50));
+        } else if (!check && checkbox.checked) {
+          checkbox.click();
+          count++;
+          await new Promise((r) => setTimeout(r, 50));
+        }
+      }
+    }
+
+    showToast(
+      `✅ ${check ? "勾选" : "取消"}了 ${count} 行 (${rows.join(",")})`
+    );
   }
 
   function operateCheckboxes(baseXpath, start, end, check) {
@@ -735,40 +835,86 @@
     makeDraggable(container, container.querySelector(".monitor-header"));
 
     let clickIntervalId = null;
+    let updateIntervalId = null;
+    let foundValidContent = false;
 
     function updateMonitor() {
       const el = getElementByXPath(config.monitorXpath);
       const content = container.querySelector(".monitor-content");
 
       if (el) {
-        content.innerHTML = el.cloneNode(true).outerHTML;
-        // 找到内容后停止点击
-        if (clickIntervalId) {
-          clearInterval(clickIntervalId);
-          clickIntervalId = null;
+        const cloned = el.cloneNode(true);
+        const text = (el.textContent || "").trim();
+
+        // 检查是否有实际内容（不是空的或者只有空白）
+        if (text.length > 0) {
+          content.innerHTML = cloned.outerHTML;
+
+          // 找到有效内容后才停止点击
+          if (!foundValidContent) {
+            foundValidContent = true;
+            console.log("[助手] 找到有效内容，停止点击");
+            if (clickIntervalId) {
+              clearInterval(clickIntervalId);
+              clickIntervalId = null;
+            }
+          }
+        } else {
+          content.innerHTML =
+            '<span style="color:#f90;">元素存在但内容为空，继续等待...</span>';
         }
       } else {
-        content.innerHTML = '<span style="color:#999;">未找到元素</span>';
+        content.innerHTML =
+          '<span style="color:#999;">未找到元素，继续尝试...</span>';
       }
     }
 
     // 如果配置了点击触发
     if (config.monitorClickXpath) {
       const clickTrigger = () => {
+        // 只有还没找到有效内容时才继续点击
+        if (foundValidContent) return;
+
         const el = getElementByXPath(config.monitorClickXpath);
-        if (el) el.click();
+        if (el) {
+          el.click();
+          console.log("[助手] 点击触发元素");
+          // 点击后等待一段时间再更新
+          setTimeout(updateMonitor, 300);
+        }
       };
-      clickTrigger();
-      clickIntervalId = setInterval(clickTrigger, 2000);
+
+      // 立即点击一次
+      setTimeout(clickTrigger, 500);
+      // 每1.5秒尝试点击一次（加快频率）
+      clickIntervalId = setInterval(clickTrigger, 1500);
+
+      // 30秒后如果还没找到就停止点击（防止无限点击）
+      setTimeout(() => {
+        if (clickIntervalId && !foundValidContent) {
+          clearInterval(clickIntervalId);
+          clickIntervalId = null;
+          console.log("[助手] 超时，停止点击");
+          const content = container.querySelector(".monitor-content");
+          if (!foundValidContent) {
+            content.innerHTML =
+              '<span style="color:#f44336;">超时未找到内容，请检查XPath配置</span>';
+          }
+        }
+      }, 30000);
     }
 
-    // 定时更新
-    setTimeout(updateMonitor, 500);
-    setInterval(updateMonitor, 3000);
+    // 定时更新显示（每2秒）
+    setTimeout(updateMonitor, 800);
+    updateIntervalId = setInterval(updateMonitor, 2000);
   }
 
   // ============== 创建配置按钮 ==============
   function createConfigButton(taskId) {
+    // 先移除旧的按钮（如果存在）
+    const oldBtn = document.getElementById("agi-config-btn");
+    if (oldBtn) oldBtn.remove();
+
     const btn = document.createElement("button");
     btn.id = "agi-config-btn";
     btn.textContent = "⚙️ 配置";
@@ -778,8 +924,98 @@
     document.body.appendChild(btn);
   }
 
+  // ============== 清理旧的UI元素 ==============
+  function cleanupUI() {
+    const ids = [
+      "agi-checkbox-container",
+      "agi-help",
+      "agi-monitor-container",
+      "agi-config-btn",
+    ];
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    });
+  }
+
+  // ============== 初始化所有功能 ==============
+  function initAllFeatures(taskId) {
+    console.log(`[助手] 初始化功能，taskId: ${taskId}`);
+
+    // 先清理旧的UI
+    cleanupUI();
+
+    // 创建配置按钮
+    createConfigButton(taskId);
+
+    // 获取配置
+    const config = getProjectConfig(taskId);
+
+    if (!config) {
+      console.log("[助手] 未配置，弹出配置窗口");
+      setTimeout(() => showConfigModal(taskId, null), 1000);
+      return;
+    }
+
+    console.log("[助手] 使用配置:", config);
+    showToast(`✅ ${config.name || "助手"}已启动`, 2000);
+
+    // 启动各功能
+    initCheckboxFeature(config);
+    initHotkeyFeature(config);
+    initUrlLinkifyFeature(config);
+    initMonitorFeature(config);
+  }
+
+  // ============== URL变化检测（SPA支持） ==============
+  let lastUrl = window.location.href;
+  let lastTaskId = null;
+
+  function checkUrlChange() {
+    const currentUrl = window.location.href;
+    const currentTaskId = getTaskId();
+
+    // URL或taskId变化时重新初始化
+    if (currentUrl !== lastUrl || currentTaskId !== lastTaskId) {
+      console.log(`[助手] URL变化: ${lastUrl} -> ${currentUrl}`);
+      lastUrl = currentUrl;
+      lastTaskId = currentTaskId;
+
+      if (currentTaskId) {
+        // 延迟一点让页面先加载
+        setTimeout(() => initAllFeatures(currentTaskId), 500);
+      } else {
+        // 没有taskId时清理UI
+        cleanupUI();
+      }
+    }
+  }
+
+  // 监听 popstate（浏览器前进/后退）
+  window.addEventListener("popstate", () => {
+    setTimeout(checkUrlChange, 100);
+  });
+
+  // 监听 pushState 和 replaceState（SPA路由）
+  const originalPushState = history.pushState;
+  const originalReplaceState = history.replaceState;
+
+  history.pushState = function (...args) {
+    originalPushState.apply(this, args);
+    setTimeout(checkUrlChange, 100);
+  };
+
+  history.replaceState = function (...args) {
+    originalReplaceState.apply(this, args);
+    setTimeout(checkUrlChange, 100);
+  };
+
+  // 定期检查URL变化（兜底方案，每2秒检查一次）
+  setInterval(checkUrlChange, 2000);
+
   // ============== 主逻辑 ==============
   const taskId = getTaskId();
+  lastTaskId = taskId;
 
   if (!taskId) {
     console.log("[助手] 未检测到 taskId");
@@ -788,24 +1024,6 @@
 
   console.log(`[助手] taskId: ${taskId}`);
 
-  // 配置按钮
-  createConfigButton(taskId);
-
-  // 获取配置
-  const config = getProjectConfig(taskId);
-
-  if (!config) {
-    console.log("[助手] 未配置，弹出配置窗口");
-    setTimeout(() => showConfigModal(taskId, null), 1000);
-    return;
-  }
-
-  console.log("[助手] 使用配置:", config);
-  showToast(`✅ ${config.name || "助手"}已启动`, 2000);
-
-  // 启动各功能
-  initCheckboxFeature(config);
-  initHotkeyFeature(config);
-  initUrlLinkifyFeature(config);
-  initMonitorFeature(config);
+  // 初始化
+  initAllFeatures(taskId);
 })();
