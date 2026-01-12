@@ -210,55 +210,125 @@
     }
     #agi-help .help-hide:hover { color: #fff; }
 
-    /* 勾选框输入容器 */
+    /* 勾选框侧边栏容器 */
     #agi-checkbox-container {
       position: fixed;
-      right: 20px;
-      top: 50%;
-      transform: translateY(-50%);
+      right: 0;
+      top: 30%;
       z-index: 9999;
-      background: rgba(255, 255, 255, 0.95);
-      padding: 15px;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      text-align: center;
-      cursor: grab;
-      min-width: 140px;
+      display: flex;
+      align-items: flex-start;
     }
-    #agi-checkbox-container .drag-header {
-      font-size: 11px;
-      color: #999;
-      margin-bottom: 8px;
+    #agi-checkbox-container .sidebar-tab {
+      width: 24px;
+      padding: 15px 3px;
+      background: #1890ff;
+      color: white;
+      border-radius: 6px 0 0 6px;
+      cursor: pointer;
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      font-size: 12px;
+      text-align: center;
+      box-shadow: -2px 0 8px rgba(0,0,0,0.15);
       user-select: none;
+      margin-right: -1px;
+    }
+    #agi-checkbox-container .sidebar-tab:hover {
+      background: #40a9ff;
+    }
+    #agi-checkbox-container .sidebar-content {
+      background: rgba(255, 255, 255, 0.98);
+      padding: 12px;
+      border-radius: 6px 0 0 6px;
+      box-shadow: -2px 0 12px rgba(0, 0, 0, 0.15);
+      text-align: center;
+      min-width: 150px;
+      max-width: 180px;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+      border: 1px solid #e8e8e8;
+      border-right: none;
+      position: absolute;
+      right: 0;
+      top: 0;
+    }
+    #agi-checkbox-container.expanded .sidebar-content {
+      transform: translateX(0);
+    }
+    #agi-checkbox-container.expanded .sidebar-tab {
+      opacity: 0.3;
+    }
+    #agi-checkbox-container .sidebar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #eee;
+    }
+    #agi-checkbox-container .sidebar-title {
+      font-size: 12px;
+      font-weight: bold;
+      color: #333;
+    }
+    #agi-checkbox-container .pin-btn {
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: #f0f0f0;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      padding: 0;
+      line-height: 22px;
+    }
+    #agi-checkbox-container .pin-btn:hover {
+      background: #e0e0e0;
+    }
+    #agi-checkbox-container .pin-btn.pinned {
+      background: #1890ff;
+      color: white;
     }
     #agi-checkbox-container input {
       width: 100%;
-      padding: 8px;
-      margin-bottom: 8px;
+      padding: 6px 8px;
+      margin-bottom: 6px;
       border: 1px solid #ddd;
-      border-radius: 5px;
+      border-radius: 4px;
       box-sizing: border-box;
+      font-size: 12px;
+    }
+    #agi-checkbox-container .section-label {
+      font-size: 10px;
+      color: #888;
+      margin-bottom: 4px;
+      text-align: left;
     }
     #agi-checkbox-container .btn-row {
       display: flex;
-      gap: 8px;
+      gap: 4px;
+      margin-bottom: 8px;
     }
-    #agi-checkbox-container button {
+    #agi-checkbox-container button.action-btn {
       flex: 1;
-      padding: 8px;
+      padding: 5px 2px;
       border: none;
-      border-radius: 5px;
+      border-radius: 4px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 10px;
       color: white;
     }
     #agi-checkbox-container .btn-confirm { background: #4CAF50; }
     #agi-checkbox-container .btn-cancel { background: #f44336; }
     #agi-checkbox-container .btn-clear { background: #999; }
-
     #agi-checkbox-container .btn-jump-confirm { background: #4CAF50; }
     #agi-checkbox-container .btn-jump-cancel { background: #f44336; }
     #agi-checkbox-container .btn-jump-clear { background: #999; }
+    #agi-checkbox-container .divider {
+      border-top: 1px dashed #ddd;
+      margin: 8px 0;
+    }
 
     /* 元素监控容器 */
     #agi-monitor-container {
@@ -545,28 +615,117 @@
     const container = document.createElement("div");
     container.id = "agi-checkbox-container";
     container.innerHTML = `
-      <div class="drag-header">☰ 拖拽移动</div>
-      <div style="font-size:11px;color:#666;margin-bottom:5px;">连续选择</div>
-      <input type="number" id="agi-start" placeholder="起始行">
-      <input type="number" id="agi-end" placeholder="结束行">
-      <div class="btn-row">
-        <button class="btn-confirm">勾选</button>
-        <button class="btn-cancel">取消</button>
-        <button class="btn-clear">清空</button>
-      </div>
-      <div style="border-top:1px dashed #ddd;margin:10px 0;"></div>
-      <div style="font-size:11px;color:#666;margin-bottom:5px;">跳选（如: 2,6,7）</div>
-      <input type="text" id="agi-jump" placeholder="输入行号，逗号分隔">
-      <div class="btn-row">
-        <button class="btn-jump-confirm">勾选</button>
-        <button class="btn-jump-cancel">取消</button>
-        <button class="btn-jump-clear">清空</button>
+      <div class="sidebar-tab">📦 批量选择</div>
+      <div class="sidebar-content">
+        <div class="sidebar-header">
+          <span class="sidebar-title">批量选择</span>
+          <button class="pin-btn" title="钉住/取消钉住">📌</button>
+        </div>
+        <div class="section-label">连续选择</div>
+        <input type="number" id="agi-start" placeholder="起始行">
+        <input type="number" id="agi-end" placeholder="结束行">
+        <div class="btn-row">
+          <button class="action-btn btn-confirm">勾选</button>
+          <button class="action-btn btn-cancel">取消</button>
+          <button class="action-btn btn-clear">清空</button>
+        </div>
+        <div class="divider"></div>
+        <div class="section-label">跳选（如: 2,6,7）</div>
+        <input type="text" id="agi-jump" placeholder="行号，逗号分隔">
+        <div class="btn-row">
+          <button class="action-btn btn-jump-confirm">勾选</button>
+          <button class="action-btn btn-jump-cancel">取消</button>
+          <button class="action-btn btn-jump-clear">清空</button>
+        </div>
       </div>
     `;
     document.body.appendChild(container);
-    makeDraggable(container);
 
     const baseXpath = config.checkboxBaseXpath;
+    const tab = container.querySelector(".sidebar-tab");
+    const content = container.querySelector(".sidebar-content");
+    const pinBtn = container.querySelector(".pin-btn");
+
+    let isPinned = false;
+    let autoCollapseTimer = null;
+
+    // 展开侧边栏
+    function expand() {
+      container.classList.add("expanded");
+      // 如果没钉住，启动自动收回计时器
+      if (!isPinned) {
+        startAutoCollapse();
+      }
+    }
+
+    // 收起侧边栏
+    function collapse() {
+      if (isPinned) return; // 钉住状态不收起
+      container.classList.remove("expanded");
+      clearAutoCollapse();
+    }
+
+    // 启动自动收回计时器（3秒）
+    function startAutoCollapse() {
+      clearAutoCollapse();
+      autoCollapseTimer = setTimeout(() => {
+        collapse();
+      }, 3000);
+    }
+
+    // 清除自动收回计时器
+    function clearAutoCollapse() {
+      if (autoCollapseTimer) {
+        clearTimeout(autoCollapseTimer);
+        autoCollapseTimer = null;
+      }
+    }
+
+    // 点击标签展开/收起
+    tab.addEventListener("click", () => {
+      if (container.classList.contains("expanded")) {
+        isPinned = false;
+        pinBtn.classList.remove("pinned");
+        collapse();
+      } else {
+        expand();
+      }
+    });
+
+    // hover标签展开
+    tab.addEventListener("mouseenter", () => {
+      if (!container.classList.contains("expanded")) {
+        expand();
+      }
+    });
+
+    // 鼠标离开整个容器时，如果没钉住就启动计时器
+    container.addEventListener("mouseleave", () => {
+      if (!isPinned && container.classList.contains("expanded")) {
+        startAutoCollapse();
+      }
+    });
+
+    // 鼠标进入容器时清除计时器
+    container.addEventListener("mouseenter", () => {
+      if (container.classList.contains("expanded")) {
+        clearAutoCollapse();
+      }
+    });
+
+    // 钉住按钮
+    pinBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      isPinned = !isPinned;
+      pinBtn.classList.toggle("pinned", isPinned);
+      if (isPinned) {
+        clearAutoCollapse();
+        showToast("📌 已钉住");
+      } else {
+        startAutoCollapse();
+        showToast("📌 已取消钉住");
+      }
+    });
 
     // 连续选择 - 勾选
     container.querySelector(".btn-confirm").addEventListener("click", () => {
