@@ -701,8 +701,16 @@
   }
 
   // ============== 功能2: 快捷键操作 ==============
+  let hotkeyHandler = null; // 保存事件处理函数引用，用于移除
+
   function initHotkeyFeature(config) {
     if (!config.enableHotkey || !config.dropdownTriggerXpath) return;
+
+    // 先移除旧的键盘监听器（如果存在）
+    if (hotkeyHandler) {
+      document.removeEventListener("keydown", hotkeyHandler);
+      hotkeyHandler = null;
+    }
 
     // 帮助面板
     const help = document.createElement("div");
@@ -722,13 +730,17 @@
       .querySelector(".help-hide")
       .addEventListener("click", () => (help.style.display = "none"));
 
-    // 键盘监听
-    document.addEventListener("keydown", (e) => {
+    // 创建键盘监听函数
+    hotkeyHandler = (e) => {
       if (!e.altKey) return;
 
       if (e.key.toLowerCase() === "h") {
         e.preventDefault();
-        help.style.display = help.style.display === "none" ? "block" : "none";
+        const helpEl = document.getElementById("agi-help");
+        if (helpEl) {
+          helpEl.style.display =
+            helpEl.style.display === "none" ? "block" : "none";
+        }
         return;
       }
 
@@ -737,7 +749,10 @@
         e.preventDefault();
         clickDropdownOption(config, keyNum);
       }
-    });
+    };
+
+    // 添加键盘监听
+    document.addEventListener("keydown", hotkeyHandler);
   }
 
   function clickDropdownOption(config, index) {
